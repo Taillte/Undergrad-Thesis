@@ -28,16 +28,24 @@ class RBM:
     self.weights = np.insert(self.weights, 0, 0, axis = 1)
     
     
-  def train(self,data,epochs=15,learning_rate=0.1,batch_size=10):
+  def train(self,data,epochs=100,learning_rate=0.1,batch_size=100):
     num_samples = data.shape[0]
     num_batches = int(num_samples/batch_size)
+    errors = np.zeros(epochs)
     for epoch in range(epochs):
+        if epoch > epochs*(0.2):
+            learning_rate = learning_rate*0.1
+            if epoch > epochs*(0.5):
+                learning_rate = learning_rate*0.1
         for batch in range(num_batches):
             mini_data = data[batch*batch_size:((batch+1)*batch_size-1),:]
-            self.train_mini_batches(mini_data, max_epochs=1,learning_rate=learning_rate)
+            errors[epoch]+= self.train_mini_batches(mini_data, 1,learning_rate)
+        errors[epoch]=errors[epoch]/num_batches
+    print('errors are ',errors)
+            
             
 
-  def train_mini_batches(self, data, max_epochs = 1000, learning_rate = 0.1):
+  def train_mini_batches(self, data, max_epochs, learning_rate):
     """
     Train the machine.
 
@@ -78,8 +86,8 @@ class RBM:
       self.weights += learning_rate * ((pos_associations - neg_associations) / num_examples)
 
       error = np.sum((data - neg_visible_probs) ** 2)
-      if self.debug_print:
-        print("Epoch %s: error is %s" % (epoch, error))
+      
+      return error
 
   def run_visible(self, data):
     """
@@ -156,9 +164,9 @@ class RBM:
     visible_states = visible_states[:,1:]
     return visible_states
     
-  def daydream(self, num_samples):
+  def daydream(self, num_samples, initialising_data):
     """
-    Randomly initialize the visible units once, and start running alternating Gibbs sampling steps
+    Initialize the visible units once, and start running alternating Gibbs sampling steps
     (where each step consists of updating all the hidden units, and then updating all of the visible units),
     taking a sample of the visible units at each step.
     Note that we only initialize the network *once*, so these samples are correlated.
@@ -173,8 +181,9 @@ class RBM:
     # (with an extra bias unit), initialized to all ones.
     samples = np.ones((num_samples, self.num_visible + 1))
 
-    # Take the first sample from a uniform distribution.
-    samples[0,1:] = np.random.rand(self.num_visible)
+    # If taking the first sample from a uniform distribution.
+    # samples[0,1:] = np.random.rand(self.num_visible)
+    samples[0,1:] = initialising_data
 
     # Start the alternating Gibbs sampling.
     # Note that we keep the hidden units binary states, but leave the
