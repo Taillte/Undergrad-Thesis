@@ -29,15 +29,21 @@ class state:
             self.points = np.array([[a, b] for a in np.linspace(0,size-1,size) for b in np.linspace(0,size-1,size)])
             self.spin = np.zeros((size,size))
             
+        if type == '3d':
+            self.points = np.array([[a, b,c] for a in np.linspace(0,size-1,size) for b in np.linspace(0,size-1,size) for c in np.linspace(0,size-1,size)])
+            self.spin = np.zeros((size,size,size))
+            
         self.renorm_size=self.size
         self.renorm_spin=self.spin
         self.renorm_points=self.points
+        self.renorm_K=0.0
 
     
     def get_size(self):
         return self.size
         
     def set_spins(self,spins):
+        #print(spins.shape[0],spins.shape[0]**(1.0/3.0))
         for i in range(spins.shape[0]):
             if spins[i] == 0:
                 spins[i] = -1
@@ -47,7 +53,7 @@ class state:
         if self.type=='2d':
             self.spin = np.reshape(spins,(int(spins.shape[0]**0.5),int(spins.shape[0]**0.5)))
         if self.type=='3d':
-            self.spin = np.reshape(spins,(int(spins.shape[0]**(1.0/3.0)),int(spins.shape[0]**(1.0/3.0)),int(spins.shape[0]**(1.0/3.0))))
+            self.spin = np.reshape(spins,(int(round(spins.shape[0]**(1.0/3.0))),int(round(spins.shape[0]**(1.0/3.0))),int(round(spins.shape[0]**(1.0/3.0)))))
 
     
     def get_coupling(self):
@@ -256,7 +262,7 @@ class state:
             else:
                 back_spin = self.spin[i][j][k+1]
 
-            energy_change = 2*self.spin[i][j][k] * (self.J_horizontal * (left_spin + right_spin + top_spin + bottom_spin) + self.J_vertical * (front_spin + back_spin) + self.h)
+            energy_change = 2*self.spin[i][j][k] * self.K * (left_spin + right_spin + top_spin + bottom_spin + front_spin + back_spin) 
             
             return energy_change
 
@@ -383,8 +389,9 @@ class state:
             new_spins = np.zeros((new_size))
             for i in range(new_size):
                 new_spins[i] = self.renorm_spin[int(factor*i)]
-            print(new_spins)
             self.renorm_spin = new_spins
+            if factor==2:
+                self.renorm_K = 0.5 * np.log(np.cosh(2*self.K))
 
         if self.type=='2d':
             new_spins = np.zeros((new_size,new_size))

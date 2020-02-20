@@ -11,7 +11,188 @@ from scipy.ndimage import gaussian_filter
 import lattice
 import rbm
 
-def Compare_RMB_Params(size,K,length,number_train,number_gen,min_temp,max_temp,number_temps,type='1d',min_epoch=100,max_epoch=10000,num_epochs=10):
+def Compare_KL_Div(epochs,errors1,errors2):
+     epochs = np.arange(1,epochs+1)
+     
+     fig, ax = plt.subplots()
+     ax.plot(epochs, errors1, '.',label='RBM')
+     ax.plot(epochs, errors2, '.',label='2 Stacked')
+     plt.title('KL Divergence')
+     plt.xlabel('Epochs')
+     plt.ylabel('KL Div Estimate')
+     plt.legend()
+     
+     plt.show()
+
+
+
+def KL_Div(size,temp,type='1d',epochs=10000,stacked=False,plot=True,k=1):
+    ratio_hidden = 0.5
+
+    if type=='1d':
+        vis = size
+        hid = int(vis*ratio_hidden)
+    if type=='2d':
+        vis = size**2
+    if type=='3d':
+        vis = size**3
+    hid = int(vis*ratio_hidden)
+    if stacked==True:
+        second_hid = int(hid*ratio_hidden)
+        r = rbm.Stacked_RBM(num_visible = vis, num_first_hidden = hid, num_second_hidden = second_hid)
+    else:
+        r = rbm.RBM(num_visible = vis, num_hidden = hid)
+        
+    training_data_sample = np.loadtxt('training_data_temp%s.txt'%temp)
+    errors = r.train(training_data_sample,epochs=int(epochs),learning_rate=0.1,batch_size=100,k=k)
+    return epochs,errors
+    
+    if plot==True:
+        epochs = np.arange(1,epochs+1)
+        
+        fig, ax = plt.subplots()
+        ax.plot(epochs, errors, '.')
+        plt.title('KL Divergence')
+        plt.xlabel('Epochs')
+        plt.ylabel('KL Div')
+        
+        plt.show()
+
+
+
+
+def Autocorrelations_in_generated(size,K,max_binsize,samples,temp,type='1d',plot=True,epochs=100,stacked=False,k=1):
+    ratio_hidden = 0.5
+
+    gen_data=[]
+    if type=='1d':
+        vis = size
+        hid = int(vis*ratio_hidden)
+    if type=='2d':
+        vis = size**2
+    if type=='3d':
+        vis = size**3
+    hid = int(vis*ratio_hidden)
+    if stacked==True:
+        second_hid = int(hid*ratio_hidden)
+        r = rbm.Stacked_RBM(num_visible = vis, num_first_hidden = hid, num_second_hidden = second_hid)
+    else:
+        r = rbm.RBM(num_visible = vis, num_hidden = hid)
+        
+    training_data_sample = np.loadtxt('training_data_temp%s.txt'%temp)
+    r.train(training_data_sample,epochs=int(epochs),learning_rate=0.1,batch_size=100,k=k)
+    
+    number_gen = max_binsize*samples
+    gen_data = r.daydream(number_gen,training_data_sample[0])
+                
+    binsizes = np.arange(1,max_binsize+1)
+    
+    magnetisations=[]
+    standard_dev_magnetisations=[]
+    
+    for binsize_index in range(max_binsize):
+        binsize_magnetizations=np.zeros((samples))
+        
+        for sample in range(samples):
+            for i in range(binsizes[binsize_index]):
+                Initial = lattice.Initialise_Random_State(size,temp,K,type=type)
+                Initial.set_spins(gen_data[sample*binsizes[binsize_index]+i])
+                binsize_magnetizations[sample] += np.abs(Initial.magnetisation())
+            binsize_magnetizations[sample] = binsize_magnetizations[sample]/binsizes[binsize_index]
+ 
+        magnetisations.append(np.mean(binsize_magnetizations))
+        standard_dev_magnetisations.append(np.std(binsize_magnetizations))
+        
+    fig, ax = plt.subplots()
+    ax.errorbar(binsizes, magnetisations, fmt='-o',yerr= standard_dev_magnetisations)
+    plt.title('Determining Autocorrelations')
+    plt.xlabel('Binsizes')
+    plt.ylabel('Magnetization')
+    
+    plt.show()
+
+            
+
+
+def Compare_Tile_Errors(X,Y,first_dataset,second_dataset,label):
+    difference = first_dataset - second_dataset
+
+    z_min, z_max = -np.abs(difference).max(), np.abs(difference).max()
+    fig, ax = plt.subplots()
+    c = ax.pcolormesh(X, Y, difference, cmap='RdBu', vmin=z_min, vmax=z_max)
+    ax.set_title('Relative Errors in %s'%label)
+    # set the limits of the plot to the limits of the data
+    ax.axis([X.min(), X.max(), Y.min(), Y.max()])
+    ax.set_xlabel('epochs')
+    ax.set_ylabel('temperature')
+    fig.colorbar(c, ax=ax)
+    
+
+
+# Generate Weight matrix for RBM trained on given data
+def Weight_Matrix(size,ratio_hidden,epochs,training_data,type='1d'):
+    if type=='1d':
+        vis = size
+        hid = int(vis*ratio_hidden)
+    if type=='2d':
+        vis = size**2
+    if type=='3d':
+        vis = size**3
+    hid = int(vis*ratio_hidden)
+
+    r = rbm.RBM(num_visible = vis, num_hidden = hid)
+    r.train(training_data,epochs=epochs,learning_rate=0.1,batch_size=100)
+    
+    weights = np.delete(np.delete(r.weights,0,axis=0),0,axis=1)
+    
+    weights_hid = np.matmul(weights.T,weights)
+    X, Y = np.meshgrid(np.linspace(1,hid,hid),np.linspace(1,hid,hid))
+    
+    z_min, z_max = -np.abs(weights_hid).max(), np.abs(weights_hid).max()
+    fig, ax = plt.subplots()
+    c = ax.pcolormesh(X, Y, weights_hid, cmap='RdBu', vmin=z_min, vmax=z_max)
+    ax.set_title('Correlation of Hidden activations to next Sample')
+    # set the limits of the plot to the limits of the data
+    ax.axis([X.min(), X.max(), Y.min(), Y.max()])
+    ax.set_xlabel('hidden index')
+    ax.set_ylabel('hidden index')
+    fig.colorbar(c, ax=ax)
+    
+    
+    weights_vis = np.matmul(weights,weights.T)
+    print(weights_vis)
+    X, Y = np.meshgrid(np.linspace(1,vis,vis),np.linspace(1,vis,vis))
+    
+    #z_min, z_max = -np.abs(weights_vis).max(), np.abs(weights_vis).max()
+    z_min, z_max = weights_vis.min(), weights_vis.max()
+    fig, ax = plt.subplots()
+    c = ax.pcolormesh(X, Y, weights_vis, cmap='RdBu', vmin=z_min, vmax=z_max)
+    ax.set_title('Correlation of Visible activations to next Sample')
+    # set the limits of the plot to the limits of the data
+    ax.axis([X.min(), X.max(), Y.min(), Y.max()])
+    ax.set_xlabel('visible index')
+    ax.set_ylabel('visible index')
+    fig.colorbar(c, ax=ax)
+    
+
+    
+#Compare weight matrices for different numbers of hidden nodes for one set of training data
+def Compare_Weights(size,ratios,epochs,temperatures,type='1d'):
+    for temperature in temperatures:
+        if temperature==0.0:
+            temperature=0.00001
+        training_data_sample = np.loadtxt('training_data_temp%s.txt'%temperature)
+        for ratio in ratios:
+            Weight_Matrix(size,ratio,epochs,training_data_sample,type=type)
+            
+    plt.show()
+    
+    
+    
+
+    
+
+def Compare_RMB_Params(size,K,length,number_train,number_gen,min_temp,max_temp,number_temps,type='1d',min_epoch=10,max_epoch=1000,num_epochs=10):
     epochs = np.linspace(min_epoch,max_epoch,num_epochs)
     differences = np.zeros((4,num_epochs))
     for i in range(num_epochs):
@@ -33,7 +214,7 @@ def Compare_RMB_Params(size,K,length,number_train,number_gen,min_temp,max_temp,n
     
     plt.show()
     
-def Compare_RMB_Params_Temp(size,K,length,number_train,number_gen,min_temp,max_temp,number_temps,type='1d',min_epoch=10,max_epoch=1000,num_epochs=30):
+def Compare_RMB_Params_Temp(size,K,length,number_train,number_gen,min_temp,max_temp,number_temps,type='1d',min_epoch=10,max_epoch=5000,num_epochs=30,stacked=False,k=1,plot=True):
     from mpl_toolkits import mplot3d
 
     epochs = np.linspace(min_epoch,max_epoch,num_epochs)
@@ -47,76 +228,89 @@ def Compare_RMB_Params_Temp(size,K,length,number_train,number_gen,min_temp,max_t
     #epochs_for_plotting = []
     #temperatures_for_plotting = []
     for i in range(num_epochs):
-        difference_for_epoch = Generate_and_Test(size,K,length,number_train,number_gen,min_temp,max_temp,number_temps,type='1d',plot=False,gen_training=False,epochs=int(epochs[i]))
+        difference_for_epoch = Generate_and_Test(size,K,length,number_train,number_gen,min_temp,max_temp,number_temps,type=type,plot=False,gen_training=False,epochs=int(epochs[i]),stacked=stacked,k=k)
 
         mag_errors[i] = difference_for_epoch[0]
         energy_errors[i] = difference_for_epoch[1]
         suscept_errors[i] = difference_for_epoch[2]
         SHeat_errors[i] = difference_for_epoch[3]
+        
+    overall_errors = np.multiply(mag_errors, np.amax(mag_errors,axis=0)) + np.multiply(energy_errors, np.amax(energy_errors,axis=0)) + np.multiply(suscept_errors,np.amax(suscept_errors,axis=0)) + np.multiply(SHeat_errors,np.amax(SHeat_errors,axis=0))
+    optimal_epoch_indices = np.argmin(overall_errors,axis = 0)
+    optimal_epochs = epochs[optimal_epoch_indices]
+    
+    print(optimal_epochs)
+    np.savetxt('optimal_epochs_%s.txt'%type,optimal_epochs)
 
     X, Y = np.meshgrid(epochs,temperatures)
-    #print('X is ',X)
-    #print('Y is ',Y)
     X = X.T
     Y = Y.T
+    
+    if plot==True:
+        
+        z_min, z_max = -np.abs(mag_errors).max(), np.abs(mag_errors).max()
+        fig, ax = plt.subplots()
+        c = ax.pcolormesh(X, Y, mag_errors, cmap='RdBu', vmin=z_min, vmax=z_max)
+        ax.set_title('mag errors')
+        # set the limits of the plot to the limits of the data
+        ax.axis([X.min(), X.max(), Y.min(), Y.max()])
+        ax.set_xlabel('epochs')
+        ax.set_ylabel('temperature')
+        fig.colorbar(c, ax=ax)
+        
+        
+        z_min, z_max = -np.abs(energy_errors).max(), np.abs(energy_errors).max()
+        fig, ax = plt.subplots()
+        c = ax.pcolormesh(X, Y, energy_errors, cmap='RdBu', vmin=z_min, vmax=z_max)
+        ax.set_title('energy errors')
+        # set the limits of the plot to the limits of the data
+        ax.axis([X.min(), X.max(), Y.min(), Y.max()])
+        ax.set_xlabel('epochs')
+        ax.set_ylabel('temperature')
+        fig.colorbar(c, ax=ax)
+        
+        z_min, z_max = -np.abs(suscept_errors).max(), np.abs(suscept_errors).max()
+        fig, ax = plt.subplots()
+        c = ax.pcolormesh(X, Y, suscept_errors, cmap='RdBu', vmin=z_min, vmax=z_max)
+        ax.set_title('suscept errors')
+        # set the limits of the plot to the limits of the data
+        ax.axis([X.min(), X.max(), Y.min(), Y.max()])
+        ax.set_xlabel('epochs')
+        ax.set_ylabel('temperature')
+        fig.colorbar(c, ax=ax)
+        
+           
+        z_min, z_max = -np.abs(SHeat_errors).max(), np.abs(SHeat_errors).max()
+        fig, ax = plt.subplots()
+        c = ax.pcolormesh(X, Y, SHeat_errors, cmap='RdBu', vmin=z_min, vmax=z_max)
+        ax.set_title('SHeat errors')
+        # set the limits of the plot to the limits of the data
+        ax.axis([X.min(), X.max(), Y.min(), Y.max()])
+        ax.set_xlabel('epochs')
+        ax.set_ylabel('temperature')
+        fig.colorbar(c, ax=ax)
+        
+        #fig.savefig('temp.png')
+        plt.show()
+    
+    return X, Y, mag_errors, energy_errors, suscept_errors, SHeat_errors
 
-    #X,Y = epochs,temperatures
-    #print(X.shape, Y.shape,mag_errors.shape)
-    
-    z_min, z_max = -np.abs(mag_errors).max(), np.abs(mag_errors).max()
-    fig, ax = plt.subplots()
-    c = ax.pcolormesh(X, Y, mag_errors, cmap='RdBu', vmin=z_min, vmax=z_max)
-    ax.set_title('mag errors')
-    # set the limits of the plot to the limits of the data
-    ax.axis([X.min(), X.max(), Y.min(), Y.max()])
-    ax.set_xlabel('epochs')
-    ax.set_ylabel('temperature')
-    fig.colorbar(c, ax=ax)
-    
-    
-    z_min, z_max = -np.abs(energy_errors).max(), np.abs(energy_errors).max()
-    fig, ax = plt.subplots()
-    c = ax.pcolormesh(X, Y, energy_errors, cmap='RdBu', vmin=z_min, vmax=z_max)
-    ax.set_title('energy errors')
-    # set the limits of the plot to the limits of the data
-    ax.axis([X.min(), X.max(), Y.min(), Y.max()])
-    ax.set_xlabel('epochs')
-    ax.set_ylabel('temperature')
-    fig.colorbar(c, ax=ax)
-    
-    z_min, z_max = -np.abs(suscept_errors).max(), np.abs(suscept_errors).max()
-    fig, ax = plt.subplots()
-    c = ax.pcolormesh(X, Y, suscept_errors, cmap='RdBu', vmin=z_min, vmax=z_max)
-    ax.set_title('suscept errors')
-    # set the limits of the plot to the limits of the data
-    ax.axis([X.min(), X.max(), Y.min(), Y.max()])
-    ax.set_xlabel('epochs')
-    ax.set_ylabel('temperature')
-    fig.colorbar(c, ax=ax)
-    
-       
-    z_min, z_max = -np.abs(SHeat_errors).max(), np.abs(SHeat_errors).max()
-    fig, ax = plt.subplots()
-    c = ax.pcolormesh(X, Y, SHeat_errors, cmap='RdBu', vmin=z_min, vmax=z_max)
-    ax.set_title('SHeat errors')
-    # set the limits of the plot to the limits of the data
-    ax.axis([X.min(), X.max(), Y.min(), Y.max()])
-    ax.set_xlabel('epochs')
-    ax.set_ylabel('temperature')
-    fig.colorbar(c, ax=ax)
-    
 
-    plt.show()
     
 
 #currently: num_hidden = num_visible -> add variable in def 'ratio_hidden'
-def Generate_and_Test(size,K,length,number_train,number_gen,min_temp,max_temp,number_temps,type='1d',plot=True,gen_training=True,epochs=100):
+def Generate_and_Test(size,K,length,number_train,number_gen,min_temp,max_temp,number_temps,type='1d',plot=True,gen_training=True,epochs=100,stacked=False,k=1):
     if min_temp==0.0:
         min_temp=0.00001
-    
     temperatures = np.linspace(min_temp,max_temp,number_temps)
     
     training_stats=np.zeros((5,number_temps))
+    
+    if isinstance(epochs, (list, tuple, np.ndarray))==False:
+        epochs_for_temps = np.zeros(number_temps)
+        epochs_for_temps.fill(epochs)
+    else:
+        epochs_for_temps = epochs
 
     training_data=[]
     if gen_training==True:
@@ -141,15 +335,19 @@ def Generate_and_Test(size,K,length,number_train,number_gen,min_temp,max_temp,nu
         if type=='3d':
             vis = size**3
         hid = int(vis*ratio_hidden)
-        r = rbm.RBM(num_visible = vis, num_hidden = hid)
+        if stacked==True:
+            second_hid = int(hid*ratio_hidden)
+            r = rbm.Stacked_RBM(num_visible = vis, num_first_hidden = hid, num_second_hidden = second_hid)
+        else:
+            r = rbm.RBM(num_visible = vis, num_hidden = hid)
         #print(training_data[i])
         if gen_training==True:
-            r.train(training_data[i],epochs=epochs,learning_rate=0.1,batch_size=100)
+            r.train(training_data[i],epochs=int(epochs_for_temps[i]),learning_rate=0.1,batch_size=100,k=k)
             gen_data.append(r.daydream(number_gen*autocorrelation_guess_rbm,training_data[i][0]))
 
         else:
             training_data_sample = np.loadtxt('training_data_temp%s.txt'%temperatures[i])
-            r.train(training_data_sample,epochs=epochs,learning_rate=0.1,batch_size=100)
+            r.train(training_data_sample,epochs=int(epochs_for_temps[i]),learning_rate=0.1,batch_size=100,k=k)
             gen_data.append(r.daydream(number_gen*autocorrelation_guess_rbm,training_data_sample[0]))
             training_stats[0][i]=temperatures[i]
             training_stats[1][i], training_stats[2][i], training_stats[3][i], training_stats[4][i] = Test_Generated(training_data_sample,size,temperatures[i],K,type=type)
@@ -238,6 +436,7 @@ def Test_Generated(data,size,temp,K,type=type,autocorrelation=1):
     for i in range(num_samples*autocorrelation):
         if (i%autocorrelation==0):
             Initial = lattice.Initialise_Random_State(size,temp,K,type=type)
+            #print(size,data[i].shape)
             Initial.set_spins(data[i])
             m = np.abs(Initial.magnetisation())
             en = Initial.energy()

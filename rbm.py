@@ -28,7 +28,7 @@ class RBM:
     self.weights = np.insert(self.weights, 0, 0, axis = 1)
     
     
-  def train(self,data,epochs=100,learning_rate=0.1,batch_size=100):
+  def train(self,data,epochs=100,learning_rate=0.1,batch_size=100,k=3):
     num_samples = data.shape[0]
     num_batches = int(num_samples/batch_size)
     errors = np.zeros(epochs)
@@ -39,13 +39,14 @@ class RBM:
                 learning_rate = learning_rate*0.1
         for batch in range(num_batches):
             mini_data = data[batch*batch_size:((batch+1)*batch_size-1),:]
-            errors[epoch]+= self.train_mini_batches(mini_data, 1,learning_rate)
+            errors[epoch]+= self.train_mini_batches(mini_data, learning_rate, k)
         errors[epoch]=errors[epoch]/num_batches
     print('errors are ',errors)
+    return errors
             
             
 
-  def train_mini_batches(self, data, max_epochs, learning_rate):
+  def train_mini_batches(self, data, learning_rate, k):
     """
     Train the machine.
 
@@ -59,50 +60,47 @@ class RBM:
     # Insert bias units of 1 into the first column.
     data = np.insert(data, 0, 1, axis = 1)
 
-    for epoch in range(max_epochs):      
-      # Clamp to the data and sample from the hidden units. 
-      # (This is the "positive CD phase", aka the reality phase.)
-      pos_hidden_activations = np.dot(data, self.weights)      
-      pos_hidden_probs = self._logistic(pos_hidden_activations)
-      pos_hidden_probs[:,0] = 1 # Fix the bias unit.
-      pos_hidden_states = pos_hidden_probs > np.random.rand(num_examples, self.num_hidden + 1)
-      # Note that we're using the activation *probabilities* of the hidden states, not the hidden states       
-      # themselves, when computing associations. We could also use the states; see section 3 of Hinton's 
-      # "A Practical Guide to Training Restricted Boltzmann Machines" for more.
-      pos_associations = np.dot(data.T, pos_hidden_probs)
-
-      # Reconstruct the visible units and sample again from the hidden units.
-      # (This is the "negative CD phase", aka the daydreaming phase.)
-      neg_visible_activations = np.dot(pos_hidden_states, self.weights.T)
-      neg_visible_probs = self._logistic(neg_visible_activations)
-      neg_visible_probs[:,0] = 1 # Fix the bias unit.
-      neg_hidden_activations = np.dot(neg_visible_probs, self.weights)
-      neg_hidden_probs = self._logistic(neg_hidden_activations)
-      # Note, again, that we're using the activation *probabilities* when computing associations, not the states 
-      # themselves.
-      neg_associations = np.dot(neg_visible_probs.T, neg_hidden_probs)
-
-      # Update weights.
-      self.weights += learning_rate * ((pos_associations - neg_associations) / num_examples)
-
-      error = np.sum((data - neg_visible_probs) ** 2)
+    # Clamp to the data and sample from the hidden units.
       
-      return error
+    pos_hidden_activations = np.dot(data, self.weights)
+    pos_hidden_probs = self._logistic(pos_hidden_activations)
+    pos_hidden_probs[:,0] = 1 # Fix the bias unit.
+    pos_hidden_states = pos_hidden_probs > np.random.rand(num_examples, self.num_hidden + 1)
+    # Note that we're using the activation *probabilities* of the hidden states, not the hidden states
+    # themselves, when computing associations. We could also use the states; see section 3 of Hinton's
+    # "A Practical Guide to Training Restricted Boltzmann Machines" for more.
+    pos_associations = np.dot(data.T, pos_hidden_probs)
+
+    # Reconstruct the visible units and sample again from the hidden units
+    # negative CD phase
+    neg_visible_activations = np.dot(pos_hidden_states, self.weights.T)
+    neg_visible_probs = self._logistic(neg_visible_activations)
+    neg_visible_probs[:,0] = 1 # Fix the bias unit.
+    neg_hidden_activations = np.dot(neg_visible_probs, self.weights)
+    neg_hidden_probs = self._logistic(neg_hidden_activations)
+    neg_hidden_states = neg_hidden_probs > np.random.rand(num_examples, self.num_hidden + 1)
+    # Note, again, that we're using the activation *probabilities* when computing associations, not the states
+    # themselves.
+    neg_associations = np.dot(neg_visible_probs.T, neg_hidden_probs)
+      
+    for i in range(int(k-1)):
+        neg_visible_activations = np.dot(neg_hidden_states, self.weights.T)
+        neg_visible_probs = self._logistic(neg_visible_activations)
+        neg_visible_probs[:,0] = 1 # Fix the bias unit.
+        neg_hidden_activations = np.dot(neg_visible_probs, self.weights)
+        neg_hidden_probs = self._logistic(neg_hidden_activations)
+        neg_hidden_states = neg_hidden_probs > np.random.rand(num_examples, self.num_hidden + 1)
+        # Note, again, that we're using the activation *probabilities* when computing associations, not the states
+        # themselves.
+        neg_associations = np.dot(neg_visible_probs.T, neg_hidden_probs)
+
+    # Update weights.
+    self.weights += learning_rate * ((pos_associations - neg_associations) / num_examples)
+    error = np.mean(np.abs((pos_associations - neg_associations) / num_examples))
+      
+    return error
 
   def run_visible(self, data):
-    """
-    Assuming the RBM has been trained (so that weights for the network have been learned),
-    run the network on a set of visible units, to get a sample of the hidden units.
-    
-    Parameters
-    ----------
-    data: A matrix where each row consists of the states of the visible units.
-    
-    Returns
-    -------
-    hidden_states: A matrix where each row consists of the hidden units activated from the visible
-    units in the data matrix passed in.
-    """
     
     num_examples = data.shape[0]
     
@@ -128,19 +126,6 @@ class RBM:
     
   # TODO: Remove the code duplication between this method and `run_visible`?
   def run_hidden(self, data):
-    """
-    Assuming the RBM has been trained (so that weights for the network have been learned),
-    run the network on a set of hidden units, to get a sample of the visible units.
-
-    Parameters
-    ----------
-    data: A matrix where each row consists of the states of the hidden units.
-
-    Returns
-    -------
-    visible_states: A matrix where each row consists of the visible units activated from the hidden
-    units in the data matrix passed in.
-    """
 
     num_examples = data.shape[0]
 
@@ -214,11 +199,130 @@ class RBM:
   def _logistic(self, x):
     return 1.0 / (1 + np.exp(-x))
 
-if __name__ == '__main__':
-  r = RBM(num_visible = 6, num_hidden = 2)
-  training_data = np.array([[1,1,1,0,0,0],[1,0,1,0,0,0],[1,1,1,0,0,0],[0,0,1,1,1,0], [0,0,1,1,0,0],[0,0,1,1,1,0]])
-  r.train(training_data, max_epochs = 5000)
-  print(r.weights)
-  user = np.array([[0,0,0,1,1,0]])
-  print(r.run_visible(user))
+
+
+
+# Stacking two RBMS
+
+class Stacked_RBM:
+
+    def __init__(self, num_visible, num_first_hidden, num_second_hidden):
+        self.first_rbm = RBM(num_visible = num_visible, num_hidden = num_first_hidden)
+        self.second_rbm = RBM(num_first_hidden,num_second_hidden)
+        
+    def train(self,data,epochs=100,learning_rate=0.1,batch_size=100,k=3):
+    
+        self.first_rbm.train(data,epochs=epochs,learning_rate=learning_rate,batch_size=batch_size,k=k)
+        
+        # Want to get hidden activations of the first RBM to train the second.
+        num_samples = data.shape[0]
+   
+        first_hidden_activations = self.first_rbm.run_visible(data)
+            
+        self.second_rbm.train(first_hidden_activations,learning_rate=learning_rate,batch_size=batch_size,k=k)
+        
+    # Generate data seeded by some sample
+    def daydream(self,num_samples,initialising_data):
+    
+        samples = np.ones((num_samples, self.first_rbm.num_visible + 1))
+        
+        samples[0,1:] = initialising_data
+        
+        for i in range(1, num_samples):
+          visible = samples[i-1,:]
+
+          # Calculate the activations of the hidden units.
+          first_hidden_activations = np.dot(visible, self.first_rbm.weights)
+          # Calculate the probabilities of turning the hidden units on.
+          first_hidden_probs = self._logistic(first_hidden_activations)
+          # Turn the hidden units on with their specified probabilities.
+          first_hidden_states = first_hidden_probs > np.random.rand(self.first_rbm.num_hidden + 1)
+          # Always fix the bias unit to 1.
+          first_hidden_states[0] = 1
+          
+          second_hidden_activations = np.dot(first_hidden_states, self.second_rbm.weights)
+          second_hidden_probs = self._logistic(second_hidden_activations)
+          second_hidden_states = second_hidden_probs > np.random.rand(self.second_rbm.num_hidden + 1)
+          second_hidden_states[0] = 1
+
+          # Recalculate the probabilities that the first hidden layer units are on.
+          first_hidden_activations = np.dot(second_hidden_states, self.second_rbm.weights.T)
+          first_hidden_probs = self._logistic(first_hidden_activations)
+          first_hidden_states = first_hidden_probs > np.random.rand(self.second_rbm.num_visible + 1)
+          
+          # Recalculate the probabilities that the visible units are on.
+          visible_activations = np.dot(first_hidden_states, self.first_rbm.weights.T)
+          visible_probs = self._logistic(visible_activations)
+          visible_states = visible_probs > np.random.rand(self.first_rbm.num_visible + 1)
+          samples[i,:] = visible_states
+
+        # Ignore the bias units (the first column), since they're always set to 1.
+        return samples[:,1:]
+
+    def _logistic(self, x):
+        return 1.0 / (1 + np.exp(-x))
+    
+
+# Stacking two RBMS - this time training the second rbm to reproduce the visible layer
+# Instead of the hidden layer of the first rbm
+
+class Stacked_RBM_GenVis:
+
+    def __init__(self, num_visible, num_first_hidden, num_second_hidden):
+        self.first_rbm = RBM(num_visible = num_visible, num_hidden = num_first_hidden)
+        self.second_rbm = RBM(num_first_hidden,num_second_hidden)
+            
+    def train(self,data,epochs=100,learning_rate=0.1,batch_size=100,k=3):
+    
+        self.first_rbm.train(data,epochs=epochs,learning_rate=learning_rate,batch_size=batch_size,k=k)
+        
+        # Want to get hidden activations of the first RBM to train the second.
+        num_samples = data.shape[0]
+    
+        first_hidden_activations = self.first_rbm.run_visible(data)
+                
+        self.second_rbm.train(first_hidden_activations,learning_rate=learning_rate,batch_size=batch_size,k=k)
+            
+    # Generate data seeded by some sample
+    def daydream(self,num_samples,initialising_data):
+        
+        samples = np.ones((num_samples, self.first_rbm.num_visible + 1))
+            
+        samples[0,1:] = initialising_data
+            
+        for i in range(1, num_samples):
+            visible = samples[i-1,:]
+
+            # Calculate the activations of the hidden units.
+            first_hidden_activations = np.dot(visible, self.first_rbm.weights)
+            # Calculate the probabilities of turning the hidden units on.
+            first_hidden_probs = self._logistic(first_hidden_activations)
+            # Turn the hidden units on with their specified probabilities.
+            first_hidden_states = first_hidden_probs > np.random.rand(self.first_rbm.num_hidden + 1)
+            # Always fix the bias unit to 1.
+            first_hidden_states[0] = 1
+              
+            second_hidden_activations = np.dot(first_hidden_states, self.second_rbm.weights)
+            second_hidden_probs = self._logistic(second_hidden_activations)
+            second_hidden_states = second_hidden_probs > np.random.rand(self.second_rbm.num_hidden + 1)
+            second_hidden_states[0] = 1
+            
+            # Recalculate the probabilities that the first hidden layer units are on.
+            first_hidden_activations = np.dot(second_hidden_states, self.second_rbm.weights.T)
+            first_hidden_probs = self._logistic(first_hidden_activations)
+            first_hidden_states = first_hidden_probs > np.random.rand(self.second_rbm.num_visible + 1)
+              
+            # Recalculate the probabilities that the visible units are on.
+            visible_activations = np.dot(first_hidden_states, self.first_rbm.weights.T)
+            visible_probs = self._logistic(visible_activations)
+            visible_states = visible_probs > np.random.rand(self.first_rbm.num_visible + 1)
+            samples[i,:] = visible_states
+
+        # Ignore the bias units (the first column), since they're always set to 1.
+        return samples[:,1:]
+
+    def _logistic(self, x):
+        return 1.0 / (1 + np.exp(-x))
+        
+
 

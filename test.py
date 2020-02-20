@@ -86,10 +86,69 @@ import matplotlib.pyplot as plt
 #plt.plot(test_data[0],test_data[1])
 #plt.show()
 #50,1.0,1000,5000,1000,0,1,10,type='1d'
+
+''' finding hyperparameters'''
+'''1d'''
 #print(thermodynamics.Generate_and_Test(100,1.0,2000,1000,1000,0,1,10,type='1d',gen_training=False,epochs=200))
-thermodynamics.Compare_RMB_Params_Temp(100,1.0,2000,1000,1000,0,1,10,type='1d')
+#thermodynamics.Compare_RMB_Params_Temp(100,1.0,2000,1000,1000,0,1,10,type='1d')
+#epochs = np.loadtxt('optimal_epochs_1d.txt')
+#thermodynamics.Generate_and_Test(100,1.0,2000,1000,1000,0,1,10,type='1d',gen_training=False,epochs=epochs)
+#thermodynamics.Autocorrelations_in_generated(100,1.0,20,1000,0.88889,type='1d',plot=True,epochs=1000,stacked=False,k=1)
 
-#NOTE: can plot divergence of mc stats from rbm stats
-"some problem leading to flat rbm graph"
+#epochs,errors1 = thermodynamics.KL_Div(100,0.88889,type='1d',epochs=2000,plot=False,k=1)
+#epochs,errors2 = thermodynamics.KL_Div(100,0.88889,type='1d',epochs=2000,plot=False,k=1)
+#thermodynamics.Compare_KL_Div(epochs,errors1,errors2)
 
-" 1000 spin configurations for each of 25 different temperatures T = 0, 0.25, . . . , 6. Then the index A runs from 1 to N = 25000. In some cases, as we will see in Sec. 3.2, we use only a restricted set of configurations at high or low temperatures, then the index runs A = 1, . . . , N = 1000×(number of temperatures). We repeat the renewal procedure (23) many times (5000 epochs) - 13"
+'''1d - weight matrices'''
+#temperatures = np.linspace(0,1,10)
+#thermodynamics.Compare_Weights(size,ratios,epochs,temperatures,type='1d')
+
+#data = np.loadtxt('training_data_temp0.5555599999999999.txt')
+#thermodynamics.Weight_Matrix(100,0.16,15000,data)
+#plt.show()
+# Running for longer with ratio=2 -> visible correlations become diagonal
+'''2d'''
+#thermodynamics.Generate_and_Test(10,1.0,2000,1000,1000,1,3,10,type='2d',gen_training=False,epochs=200)
+#thermodynamics.Compare_RMB_Params_Temp(10,1.0,2000,1000,1000,1,3,10,type='2d',stacked=True)
+#epochs = np.loadtxt('optimal_epochs_2d.txt')
+#thermodynamics.Generate_and_Test(10,1.0,2000,1000,1000,1,3,10,type='2d',gen_training=False,epochs=epochs)
+'''3d'''
+#thermodynamics.Generate_and_Test(6,1.0,1000,1000,1000,3.5,5.5,10,type='3d',gen_training=False,epochs=200)
+#thermodynamics.Compare_RMB_Params_Temp(6,1.0,1000,1000,1000,3.5,5.5,10,type='3d',stacked=True)
+#epochs = np.loadtxt('optimal_epochs_3d.txt')
+#print(epochs.shape)
+#thermodynamics.Generate_and_Test(6,1.0,1000,1000,1000,3.5,5.5,10,type='3d',gen_training=False,epochs=200,stacked=True)
+
+'''compare tile errors for two datasets'''
+# Can't save 3d array...
+
+'''run different conditions and save'''
+#X, Y, mag_errors, energy_errors, suscept_errors, SHeat_errors = thermodynamics.Compare_RMB_Params_Temp(100,1.0,2000,1000,1000,0,1,10,num_epochs=5,type='1d',k=15,plot=True)
+#np.savetxt('X_1d.txt',X)
+#np.savetxt('Y_1d.txt',Y)
+#np.savetxt('tile_errs_1d_cd15_mag.txt',mag_errors)
+#np.savetxt('tile_errs_1d_cd15_energy.txt',energy_errors)
+#np.savetxt('tile_errs_1d_cd15_suscept.txt',suscept_errors)
+#np.savetxt('tile_errs_1d_cd15_sh.txt',SHeat_errors)
+'''load back in / run and compare specific graphs'''
+#X = np.loadtxt('X_1d.txt')
+#Y = np.loadtxt('Y_1d.txt')
+#sample1 = np.loadtxt('tile_errs_1d_cd15_sh.txt')
+#sample2 = np.loadtxt('tile_errs_1d_cd1_sh.txt')
+#thermodynamics.Compare_Tile_Errors(X,Y,sample1,sample2,'Sh')
+
+#X, Y, mag_errors, energy_errors, suscept_errors, SHeat_errors = thermodynamics.Compare_RMB_Params_Temp(100,1.0,2000,1000,1000,0,1,10,num_epochs=5,type='1d',plot=False)
+#X2, Y2, mag_errors2, energy_errors2, suscept_errors2, SHeat_errors2 = thermodynamics.Compare_RMB_Params_Temp(100,1.0,2000,1000,1000,0,1,10,num_epochs=5,type='1d',k=3,plot=False)
+# To change axis labels etc. go into thermodynamics module
+#thermodynamics.Compare_Tile_Errors(X,Y,mag_errors,mag_errors2,'Magnetization')
+#thermodynamics.Compare_Tile_Errors(X,Y,energy_errors,energy_errors2,'Energy')
+#thermodynamics.Compare_Tile_Errors(X,Y,suscept_errors,suscept_errors2,'Susceptibility')
+#thermodynamics.Compare_Tile_Errors(X,Y,SHeat_errors,SHeat_errors2,'Specific Heat')
+#plt.show()
+
+
+
+# NOTE: can plot divergence of mc stats from rbm stats
+# some problem leading to flat rbm graph?
+
+
