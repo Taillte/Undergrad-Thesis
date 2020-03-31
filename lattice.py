@@ -52,6 +52,7 @@ class state:
             self.spin = spins
         if self.type=='2d':
             self.spin = np.reshape(spins,(int(spins.shape[0]**0.5),int(spins.shape[0]**0.5)))
+            self.renorm_spin = self.spin
         if self.type=='3d':
             self.spin = np.reshape(spins,(int(round(spins.shape[0]**(1.0/3.0))),int(round(spins.shape[0]**(1.0/3.0))),int(round(spins.shape[0]**(1.0/3.0)))))
 
@@ -377,7 +378,7 @@ class state:
             plt.scatter(self.renorm_points[:,0],np.zeros(self.renorm_size),c = clourArray.T.flatten())
     
         if self.type=='2d':
-            clourArray = np.where(self.flat_spin[ i ]  == 1, '#483d8b','#ffd700')
+            clourArray = np.where(self.flat_spin[ i ]  == 1, '#000000','#FF0000')
             plt.scatter(self.renorm_points[:,0],self.renorm_points[:,1],c = clourArray.T.flatten())
         plt.show()
             

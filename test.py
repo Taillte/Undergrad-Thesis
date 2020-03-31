@@ -1,5 +1,6 @@
 import lattice
 import thermodynamics
+import rbm
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,7 +9,16 @@ import matplotlib.pyplot as plt
 
 "Testing lattice module"
 
-#Initial = lattice.Initialise_Random_State(10,1.0,1.0,type='2d')
+#Initial = lattice.Initialise_Random_State(20,1.0,1.0,type='2d')
+#for i in range(1000):
+    #Initial.metropolis()
+#r = rbm.RBM(num_visible = int(20**2), num_hidden = int((20**2)/2))
+#training_data = thermodynamics.Training_Data(20,1.0,1.0,1000,1000,type='2d')
+#np.savetxt('example_training_data_t=1.0.txt',training_data)
+#training_data = np.loadtxt('example_training_data_t=1.0.txt')
+#r.train(training_data,epochs=int(1000),learning_rate=0.1,batch_size=100,k=1)
+#generated = r.daydream(1000,training_data[0])
+#Initial.set_spins(generated[500])
 #Initial.Renormalise(2)
 #Initial.Display()
 #Initial.animate(100,50,save=False)
@@ -16,6 +26,7 @@ import matplotlib.pyplot as plt
 "Testing thermodynamics module"
 
 #thermodynamics.Energy_Magnetization(20,2,1,1000,type='2d')
+#thermodynamics.SHeat_Susept(100,0,1,20,1000,100,1.0,type='1d',plot=True,analytic_compare=True)
 
 #state,E,M = thermodynamics.Converged_E_M(500,1,1,50,5)
 #print("E = ",E,", M = ",M,"\n Spins = ",Initial.spin)
@@ -37,9 +48,9 @@ import matplotlib.pyplot as plt
 #print("SH = ",specific_heat,", S = ",susceptibitily,"\n Spins = ",state.spin)
 
 #thermodynamics.SHeat_Susept(10, 1.0, 5.0, 10.0, 2000, 500, 1.0, type='2d')
-#thermodynamics.SHeat_Susept(500, 1.0, 5.0, 10.0, 1000, 500, 1.0, type='÷÷÷÷÷÷÷÷÷÷÷÷÷÷÷÷÷÷÷÷÷÷÷÷÷≥1d')
+#thermodynamics.SHeat_Susept(500, 1.0, 5.0, 10.0, 1000, 500, 1.0, type='1d')
 
-#thermodynamics.compare_1d_rg(500,0,1,20,5000,50,1)
+thermodynamics.compare_1d_rg(200,0,1,20,1000,50,1)
 
 '''make training data'''
 #data = thermodynamics.Training_Data(10,1,1,1000,100,type='2d')
@@ -92,11 +103,12 @@ import matplotlib.pyplot as plt
 #print(thermodynamics.Generate_and_Test(100,1.0,2000,1000,1000,0,1,10,type='1d',gen_training=False,epochs=200))
 #thermodynamics.Compare_RMB_Params_Temp(100,1.0,2000,1000,1000,0,1,10,type='1d')
 #epochs = np.loadtxt('optimal_epochs_1d.txt')
-#thermodynamics.Generate_and_Test(100,1.0,2000,1000,1000,0,1,10,type='1d',gen_training=False,epochs=epochs)
-#thermodynamics.Autocorrelations_in_generated(100,1.0,20,1000,0.88889,type='1d',plot=True,epochs=1000,stacked=False,k=1)
+#thermodynamics.Generate_and_Test(100,1.0,2000,1000,1000,0,1,10,type='1d',gen_training=False,epochs=5000)
+#thermodynamics.Autocorrelations_in_generated(100,1.0,80,100,0.88889,type='1d',plot=True,epochs=1000,stacked=False,k=1)
 
-#epochs,errors1 = thermodynamics.KL_Div(100,0.88889,type='1d',epochs=2000,plot=False,k=1)
-#epochs,errors2 = thermodynamics.KL_Div(100,0.88889,type='1d',epochs=2000,plot=False,k=1)
+#thermodynamics.KL_Div(100,0.88889,type='1d',epochs=2000,plot=True,k=1)
+#epochs,errors1 = thermodynamics.KL_Div(100,0.66667,type='1d',epochs=2000,plot=False,k=1)
+#epochs,errors2 = thermodynamics.KL_Div(100,0.66667,type='1d',epochs=2000,plot=False,k=15)
 #thermodynamics.Compare_KL_Div(epochs,errors1,errors2)
 
 '''1d - weight matrices'''
@@ -112,6 +124,14 @@ import matplotlib.pyplot as plt
 #thermodynamics.Compare_RMB_Params_Temp(10,1.0,2000,1000,1000,1,3,10,type='2d',stacked=True)
 #epochs = np.loadtxt('optimal_epochs_2d.txt')
 #thermodynamics.Generate_and_Test(10,1.0,2000,1000,1000,1,3,10,type='2d',gen_training=False,epochs=epochs)
+
+#epochs,errors1 = thermodynamics.KL_Div(10,2.7777777777777777,type='2d',epochs=2000,plot=False,k=1)
+#epochs,errors2 = thermodynamics.KL_Div(10,2.7777777777777777,type='2d',epochs=2000,plot=False,k=1,stacked=True)
+#thermodynamics.Compare_KL_Div(epochs,errors1,errors2)
+
+#thermodynamics.Autocorrelations_in_generated(10,1.0,170,100,2.7777777777777777,type='2d',plot=True,epochs=1000,stacked=False,k=1)
+
+
 '''3d'''
 #thermodynamics.Generate_and_Test(6,1.0,1000,1000,1000,3.5,5.5,10,type='3d',gen_training=False,epochs=200)
 #thermodynamics.Compare_RMB_Params_Temp(6,1.0,1000,1000,1000,3.5,5.5,10,type='3d',stacked=True)
@@ -119,23 +139,30 @@ import matplotlib.pyplot as plt
 #print(epochs.shape)
 #thermodynamics.Generate_and_Test(6,1.0,1000,1000,1000,3.5,5.5,10,type='3d',gen_training=False,epochs=200,stacked=True)
 
+#epochs,errors1 = thermodynamics.KL_Div(6,5.055555555555555,type='3d',epochs=2000,plot=False,k=1)
+#epochs,errors2 = thermodynamics.KL_Div(6,5.055555555555555,type='3d',epochs=2000,plot=False,k=15,stacked=False)
+#thermodynamics.Compare_KL_Div(epochs,errors1,errors2)
+
+#thermodynamics.Autocorrelations_in_generated(6,1.0,140,100,5.055555555555555,type='3d',plot=True,epochs=1000,stacked=False,k=1)
+
+
 '''compare tile errors for two datasets'''
 # Can't save 3d array...
 
 '''run different conditions and save'''
-#X, Y, mag_errors, energy_errors, suscept_errors, SHeat_errors = thermodynamics.Compare_RMB_Params_Temp(100,1.0,2000,1000,1000,0,1,10,num_epochs=5,type='1d',k=15,plot=True)
-#np.savetxt('X_1d.txt',X)
-#np.savetxt('Y_1d.txt',Y)
-#np.savetxt('tile_errs_1d_cd15_mag.txt',mag_errors)
-#np.savetxt('tile_errs_1d_cd15_energy.txt',energy_errors)
-#np.savetxt('tile_errs_1d_cd15_suscept.txt',suscept_errors)
-#np.savetxt('tile_errs_1d_cd15_sh.txt',SHeat_errors)
+#X, Y, mag_errors, energy_errors, suscept_errors, SHeat_errors = thermodynamics.Compare_RMB_Params_Temp(6,1.0,2000,1000,1000,3.5,5.5,10,num_epochs=5,type='3d',stacked=True,k=1,plot=True)
+#np.savetxt('X_3d.txt',X)
+#np.savetxt('Y_3d.txt',Y)
+#np.savetxt('tile_errs_3d_cd1_stacked_mag.txt',mag_errors)
+#np.savetxt('tile_errs_3d_cd1_stacked_energy.txt',energy_errors)
+#np.savetxt('tile_errs_3d_cd1_stacked_suscept.txt',suscept_errors)
+#np.savetxt('tile_errs_3d_cd1_stacked_sh.txt',SHeat_errors)
 '''load back in / run and compare specific graphs'''
-#X = np.loadtxt('X_1d.txt')
-#Y = np.loadtxt('Y_1d.txt')
-#sample1 = np.loadtxt('tile_errs_1d_cd15_sh.txt')
-#sample2 = np.loadtxt('tile_errs_1d_cd1_sh.txt')
-#thermodynamics.Compare_Tile_Errors(X,Y,sample1,sample2,'Sh')
+#X = np.loadtxt('X_3d.txt')
+#Y = np.loadtxt('Y_3d.txt')
+#sample1 = np.loadtxt('tile_errs_3d_cd15_energy.txt')
+#sample2 = np.loadtxt('tile_errs_3d_cd1_energy.txt')
+#thermodynamics.Compare_Tile_Errors(X,Y,sample1,sample2,'Energy')
 
 #X, Y, mag_errors, energy_errors, suscept_errors, SHeat_errors = thermodynamics.Compare_RMB_Params_Temp(100,1.0,2000,1000,1000,0,1,10,num_epochs=5,type='1d',plot=False)
 #X2, Y2, mag_errors2, energy_errors2, suscept_errors2, SHeat_errors2 = thermodynamics.Compare_RMB_Params_Temp(100,1.0,2000,1000,1000,0,1,10,num_epochs=5,type='1d',k=3,plot=False)

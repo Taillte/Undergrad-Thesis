@@ -15,8 +15,8 @@ def Compare_KL_Div(epochs,errors1,errors2):
      epochs = np.arange(1,epochs+1)
      
      fig, ax = plt.subplots()
-     ax.plot(epochs, errors1, '.',label='RBM')
-     ax.plot(epochs, errors2, '.',label='2 Stacked')
+     ax.plot(epochs, errors1, '.',label='CD1')
+     ax.plot(epochs, errors2, '.',label='CD15')
      plt.title('KL Divergence')
      plt.xlabel('Epochs')
      plt.ylabel('KL Div Estimate')
@@ -45,9 +45,9 @@ def KL_Div(size,temp,type='1d',epochs=10000,stacked=False,plot=True,k=1):
         
     training_data_sample = np.loadtxt('training_data_temp%s.txt'%temp)
     errors = r.train(training_data_sample,epochs=int(epochs),learning_rate=0.1,batch_size=100,k=k)
-    return epochs,errors
-    
+   
     if plot==True:
+        
         epochs = np.arange(1,epochs+1)
         
         fig, ax = plt.subplots()
@@ -57,11 +57,14 @@ def KL_Div(size,temp,type='1d',epochs=10000,stacked=False,plot=True,k=1):
         plt.ylabel('KL Div')
         
         plt.show()
+        
+    return epochs,errors
 
 
 
 
-def Autocorrelations_in_generated(size,K,max_binsize,samples,temp,type='1d',plot=True,epochs=100,stacked=False,k=1):
+
+def Autocorrelations_in_generated(size,K,max_binsize,min_samples,temp,type='1d',plot=True,epochs=100,stacked=False,k=1):
     ratio_hidden = 0.5
 
     gen_data=[]
@@ -82,7 +85,7 @@ def Autocorrelations_in_generated(size,K,max_binsize,samples,temp,type='1d',plot
     training_data_sample = np.loadtxt('training_data_temp%s.txt'%temp)
     r.train(training_data_sample,epochs=int(epochs),learning_rate=0.1,batch_size=100,k=k)
     
-    number_gen = max_binsize*samples
+    number_gen = max_binsize*min_samples
     gen_data = r.daydream(number_gen,training_data_sample[0])
                 
     binsizes = np.arange(1,max_binsize+1)
@@ -91,17 +94,21 @@ def Autocorrelations_in_generated(size,K,max_binsize,samples,temp,type='1d',plot
     standard_dev_magnetisations=[]
     
     for binsize_index in range(max_binsize):
-        binsize_magnetizations=np.zeros((samples))
+        samples = int(number_gen/binsizes[binsize_index])
+        bin_magnetizations=np.zeros((samples))
         
         for sample in range(samples):
             for i in range(binsizes[binsize_index]):
-                Initial = lattice.Initialise_Random_State(size,temp,K,type=type)
-                Initial.set_spins(gen_data[sample*binsizes[binsize_index]+i])
-                binsize_magnetizations[sample] += np.abs(Initial.magnetisation())
-            binsize_magnetizations[sample] = binsize_magnetizations[sample]/binsizes[binsize_index]
+                Ising_lattice = lattice.Initialise_Random_State(size,temp,K,type=type)
+                Ising_lattice.set_spins(gen_data[sample*binsizes[binsize_index]+i])
+                bin_magnetizations[sample] += np.abs(Ising_lattice.magnetisation())
+            bin_magnetizations[sample] = bin_magnetizations[sample]/binsizes[binsize_index]
  
-        magnetisations.append(np.mean(binsize_magnetizations))
-        standard_dev_magnetisations.append(np.std(binsize_magnetizations))
+        mean = np.mean(bin_magnetizations)
+        magnetisations.append(mean)
+        difference_from_mean = np.sum(np.square(bin_magnetizations-mean))
+        st_dev = ( difference_from_mean/(samples*(samples-1)) )**0.5
+        standard_dev_magnetisations.append(st_dev)
         
     fig, ax = plt.subplots()
     ax.errorbar(binsizes, magnetisations, fmt='-o',yerr= standard_dev_magnetisations)
@@ -376,6 +383,12 @@ def Generate_and_Test(size,K,length,number_train,number_gen,min_temp,max_temp,nu
         
     if plot==True:
     
+        def analytic_energy(temp):
+            return -K* np.tanh(temp**(-1)*K)
+            
+        def analytic_Cv(temp):
+            return spc.k * (temp**(-1)*K)**2 * (np.cosh(temp**(-1)*K))**(-2)
+    
         fig, ax = plt.subplots()
         plt.plot(temperatures, differences[0], '.', label='magnetization')
         plt.plot(temperatures, differences[1], '.', label='energy')
@@ -389,6 +402,8 @@ def Generate_and_Test(size,K,length,number_train,number_gen,min_temp,max_temp,nu
         fig, ax = plt.subplots()
         plt.plot(training_stats[0], training_stats[2], '.', label='MC')
         plt.plot(test_data[0], test_data[2], '.', label='rbm data')
+        if type=='1d':
+            plt.plot(test_data[0],analytic_energy(test_data[0]),'.',label='Exact')
         plt.legend()
         plt.xlabel('Fundamental Temperature')
         plt.ylabel('Average Energy per cell after Convergence')
@@ -554,7 +569,7 @@ def Training_Data(size,temp,K,length,number,type='1d'):
                     spins[i] = 0
         data[num,:] = spins[:]
     
-    print(data)
+    #print(data)
     return data
     
 
@@ -712,7 +727,7 @@ def Converged_SHeat_Susept(size,temp,K,length,samples,type='1d'):
 
 
 # plot magnetisation, energy, specific heat and susceptibility wrt temp
-def SHeat_Susept(size, min_temp, max_temp, number_temps, length, samples, K, type='1d',plot=True):
+def SHeat_Susept(size, min_temp, max_temp, number_temps, length, samples, K, type='1d',plot=True,analytic_compare=False):
     final_T = []
     final_M = []
     final_E = []
@@ -791,13 +806,21 @@ def SHeat_Susept(size, min_temp, max_temp, number_temps, length, samples, K, typ
     
     '''saving data and graphing'''
     
-    mag_data = np.concatenate((np.array([final_T]).T,np.array([final_M]).T),axis=1)
-    np.savetxt("magnetization3.csv",mag_data)
+    #mag_data = np.concatenate((np.array([final_T]).T,np.array([final_M]).T),axis=1)
+    #np.savetxt("magnetization3.csv",mag_data)
     
     if plot==True:
+    
+        def analytic_energy(temp):
+            return -K* np.tanh(temp**(-1)*K)
+            
+        def analytic_Cv(temp):
+            return spc.k * (temp**(-1)*K)**2 * (np.cosh(temp**(-1)*K))**(-2)
         
         fig, ax = plt.subplots()
-        plt.plot(final_T, final_E, '.', label='Energy-Temp')
+        plt.plot(final_T, final_E, '.', label='Metropolis')
+        plt.plot(np.array(final_T),analytic_energy(np.array(final_T)),'.',label='Exact')
+        plt.title('Energy')
         plt.legend()
         plt.xlabel('Fundamental Temperature')
         plt.ylabel('Average Energy per cell after Convergence')
@@ -816,7 +839,9 @@ def SHeat_Susept(size, min_temp, max_temp, number_temps, length, samples, K, typ
         plt.ylabel('Suseptibility')
 
         fig, ax = plt.subplots()
-        plt.plot(final_T, final_SH, '.', label='Specific Heat')
+        plt.plot(final_T, final_SH, '.', label='Metropolis')
+        plt.plot(np.array(final_T),analytic_Cv(np.array(final_T)),'.',label='Exact')
+        plt.title('Specific Heat')
         plt.legend()
         plt.xlabel('Fundamental Temperature')
         plt.ylabel('Specific Heat')
